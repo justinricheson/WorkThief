@@ -2,21 +2,17 @@ package com.workthief;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorkStealingScheduler implements Scheduler {
 
-    private int numThreads;
-    private List<Thread> threads = new ArrayList<Thread>();
+    private List<Thread> threads = new ArrayList<>();
     private AtomicInteger executing = new AtomicInteger();
 
     public WorkStealingScheduler(int numThreads, List<Schedulable> work) {
         if(numThreads < 1){
             throw new IllegalArgumentException("numThreads");
         }
-
-        this.numThreads = numThreads;
 
         List<ConcurrentTaskQueue> queues = new ArrayList<>();
         for(int i = 0; i < numThreads; i++){
@@ -30,42 +26,49 @@ public class WorkStealingScheduler implements Scheduler {
         }
 
         for(int i = 0; i < numThreads; i++){
-            Thief thief = new Thief(i, queues);
+            Thief thief = new Thief(queues.get(i), except(queues, i));
             Thread thread = new Thread(thief);
             threads.add(thread);
         }
     }
 
     public void start() {
-        for (int i = 0; i < threads.size(); i++){
-            threads.get(i).start();
-        }
-        for (int i = 0; i < threads.size(); i++){
-            try{
-                threads.get(i).join();
-            } catch(Exception e){ }
+        threads.forEach(Thread::start);
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (Exception e) { }
         }
     }
 
-    private class Thief implements Runnable{
-        private int threadId;
-        private List<ConcurrentTaskQueue> queues;
+    private List<ConcurrentTaskQueue> except(List<ConcurrentTaskQueue> queues, int i){
+        List<ConcurrentTaskQueue> result = new ArrayList<>();
 
-        public Thief(int threadId, List<ConcurrentTaskQueue> queues){
-            this.threadId = threadId;
-            this.queues = queues;
+        for(int j = 0; j < queues.size(); j++){
+            if(j != i){
+                result.add(queues.get(j));
+            }
+        }
+
+        return result;
+    }
+
+    private class Thief implements Runnable{
+        private List<ConcurrentTaskQueue> remoteQueues;
+        private ConcurrentTaskQueue localQueue;
+
+        public Thief(ConcurrentTaskQueue localQueue, List<ConcurrentTaskQueue> remoteQueues){
+            this.remoteQueues = remoteQueues;
+            this.localQueue = localQueue;
         }
 
         @Override
         public void run() {
             while(anyTasks() || executing.get() > 0){
-                execute(queues.get(threadId), false); // Execute local queue first
-                for (int i = 0; i < queues.size(); i++){ // Out of work, start stealing!
-                    if(i == threadId){
-                        continue;
-                    }
+                execute(localQueue, false); // Execute local queue first
+                for (int i = 0; i < remoteQueues.size(); i++){ // Out of work, start stealing!
 
-                    execute(queues.get(i), true);
+                    execute(remoteQueues.get(i), true);
                 }
 
                 Thread.yield();
@@ -73,29 +76,30 @@ public class WorkStealingScheduler implements Scheduler {
         }
 
         private boolean anyTasks(){
-            for(int i = 0; i < queues.size(); i++){
-                if(queues.get(i).size() > 0){
+            for (ConcurrentTaskQueue queue : remoteQueues) {
+                if (queue.size() > 0) {
                     return true;
                 }
             }
 
-            return false;
+            return localQueue.size() > 0;
         }
 
         private void execute(ConcurrentTaskQueue queue, boolean stealing){
-            Schedulable next = null;
+            Schedulable next;
             while((next = stealing ? queue.deqTail() : queue.deqHead()) != null){
                 try{
-                    if(stealing){
-                        System.out.println("STEALING");
-                    }
+                    if(stealing) { System.out.println("STEALING"); }
 
                     executing.incrementAndGet();
-                    next.run(queue);
+                    next.run(localQueue); // Put new work back on local queue
 
-                }catch(Exception e){
-                    // Swallow exceptions originating from scheduled tasks
-                }finally {
+                    if(localQueue.size() > 0){
+                        break; // Try to switch back to local queue, minimize concurrent access to remote queues
+                    }
+
+                } catch(Exception e){ // Swallow exceptions originating from scheduled tasks
+                } finally {
                     executing.decrementAndGet();
                 }
             }

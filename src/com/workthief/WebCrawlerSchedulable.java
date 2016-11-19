@@ -31,18 +31,16 @@ public class WebCrawlerSchedulable implements Schedulable {
     @Override
     public void run(TaskQueue queue) {
         List<String> result = getLinks(url);
-        for(int i = 0; i < result.size(); i++){
-            visited.add(result.get(i));
-        }
+        visited.addAll(result);
 
         if(maxDepth > 1){
-            for(int i = 0; i < result.size(); i++){
-                queue.enqueue(new WebCrawlerSchedulable(result.get(i), maxDepth - 1));
+            for (String r : result) {
+                queue.enqueue(new WebCrawlerSchedulable(r, maxDepth - 1));
             }
         }
     }
 
-    public static List<String> getLinks(final String urlString) {
+    private static List<String> getLinks(final String urlString) {
         List<String> result = new ArrayList<>();
         InputStream stream = null;
 
@@ -70,10 +68,7 @@ public class WebCrawlerSchedulable implements Schedulable {
                 }
             }
         }
-        catch (Exception e)
-        {
-            Exception foo = e;
-        }
+        catch (Exception e) { }
         finally {
             try {
                 if (stream != null) {

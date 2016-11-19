@@ -7,18 +7,16 @@ public class Main {
 
     public static void main(String[] args) {
         List<Schedulable> work = Arrays.asList(
-            //new WebCrawlerSchedulable("http://www.google.com", 1),
-            //new WebCrawlerSchedulable("http://www.apple.com", 1),
-            new WebCrawlerSchedulable("http://www.stackoverflow.com", 3));
+            new WebCrawlerSchedulable("http://www.google.com", 1),
+            new WebCrawlerSchedulable("http://www.apple.com", 1),
+            new WebCrawlerSchedulable("http://www.stackoverflow.com", 2));
 
         WorkStealingScheduler scheduler = new WorkStealingScheduler(10, work);
         scheduler.start();
 
-        for(int i = 0; i < work.size(); i++){
-            List<String> result = ((WebCrawlerSchedulable)work.get(i)).getVisited();
-            for(int j = 0; j < result.size(); j++){
-                System.out.println(result.get(j));
-            }
+        for (Schedulable w : work) {
+            List<String> result = ((WebCrawlerSchedulable) w).getVisited();
+            result.forEach(System.out::println);
         }
     }
 }
