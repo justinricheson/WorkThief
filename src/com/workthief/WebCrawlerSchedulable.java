@@ -1,8 +1,6 @@
 package com.workthief;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.io.*;
 import java.net.*;
@@ -13,19 +11,15 @@ public class WebCrawlerSchedulable implements Schedulable {
 
     private String url;
     private int maxDepth;
-    private static Queue<String> visited = new ConcurrentLinkedQueue<>();
+    private static ConcurrentLinkedQueue<String> visited = new ConcurrentLinkedQueue<>();
 
     public WebCrawlerSchedulable(String url, int maxDepth){
         this.url = url;
         this.maxDepth = maxDepth;
     }
 
-    public List<String> getVisited(){
-        List<String> result = new ArrayList<>();
-        while(visited.size() > 0){
-            result.add(visited.remove());
-        }
-        return result;
+    public Collection<String> getVisited(){
+        return Collections.unmodifiableCollection(visited);
     }
 
     @Override
@@ -43,6 +37,7 @@ public class WebCrawlerSchedulable implements Schedulable {
     private static List<String> getLinks(final String urlString) {
         List<String> result = new ArrayList<>();
         InputStream stream = null;
+        BufferedReader rdr = null;
 
         try {
             URL url = new URL(urlString);
@@ -50,7 +45,7 @@ public class WebCrawlerSchedulable implements Schedulable {
             connection.setConnectTimeout(3000);
             connection.setReadTimeout(5000);
             stream = connection.getInputStream();
-            BufferedReader rdr = new BufferedReader(
+            rdr = new BufferedReader(
                 new InputStreamReader(stream));
 
             String line;
@@ -73,6 +68,9 @@ public class WebCrawlerSchedulable implements Schedulable {
             try {
                 if (stream != null) {
                     stream.close();
+                }
+                if (rdr != null){
+                    rdr.close();
                 }
             } catch (Exception e) { }
         }
