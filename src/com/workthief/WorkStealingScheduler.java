@@ -89,7 +89,7 @@ public class WorkStealingScheduler implements Scheduler {
             Schedulable next;
             while((next = stealing ? queue.deqTail() : queue.deqHead()) != null){
                 try{
-                    if(stealing) { System.out.println("STEALING"); }
+                    //if(stealing) { System.out.println("STEALING"); }
 
                     executing.incrementAndGet();
                     next.run(localQueue); // Put new work back on local queue
