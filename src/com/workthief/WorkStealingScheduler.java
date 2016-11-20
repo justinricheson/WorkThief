@@ -14,14 +14,14 @@ public class WorkStealingScheduler implements Scheduler {
             throw new IllegalArgumentException("numThreads");
         }
 
-        List<ConcurrentTaskQueue> queues = new ArrayList<>();
+        List<LockFreeTaskQueue> queues = new ArrayList<>();
         for(int i = 0; i < numThreads; i++){
-            ConcurrentTaskQueue queue = new ConcurrentTaskQueue();
+            LockFreeTaskQueue queue = new LockFreeTaskQueue();
             queues.add(queue);
         }
 
         for(int i = 0; i < work.size(); i++){
-            ConcurrentTaskQueue queue = queues.get(i % queues.size()); // Evenly distribute initial work
+            LockFreeTaskQueue queue = queues.get(i % queues.size()); // Evenly distribute initial work
             queue.enqueue(work.get(i));
         }
 
@@ -41,8 +41,8 @@ public class WorkStealingScheduler implements Scheduler {
         }
     }
 
-    private List<ConcurrentTaskQueue> except(List<ConcurrentTaskQueue> queues, int i){
-        List<ConcurrentTaskQueue> result = new ArrayList<>();
+    private List<LockFreeTaskQueue> except(List<LockFreeTaskQueue> queues, int i){
+        List<LockFreeTaskQueue> result = new ArrayList<>();
 
         for(int j = 0; j < queues.size(); j++){
             if(j != i){
@@ -54,10 +54,10 @@ public class WorkStealingScheduler implements Scheduler {
     }
 
     private class Thief implements Runnable{
-        private List<ConcurrentTaskQueue> remoteQueues;
-        private ConcurrentTaskQueue localQueue;
+        private List<LockFreeTaskQueue> remoteQueues;
+        private LockFreeTaskQueue localQueue;
 
-        public Thief(ConcurrentTaskQueue localQueue, List<ConcurrentTaskQueue> remoteQueues){
+        public Thief(LockFreeTaskQueue localQueue, List<LockFreeTaskQueue> remoteQueues){
             this.remoteQueues = remoteQueues;
             this.localQueue = localQueue;
         }
@@ -76,7 +76,7 @@ public class WorkStealingScheduler implements Scheduler {
         }
 
         private boolean anyTasks(){
-            for (ConcurrentTaskQueue queue : remoteQueues) {
+            for (LockFreeTaskQueue queue : remoteQueues) {
                 if (queue.size() > 0) {
                     return true;
                 }
@@ -85,7 +85,7 @@ public class WorkStealingScheduler implements Scheduler {
             return localQueue.size() > 0;
         }
 
-        private void execute(ConcurrentTaskQueue queue, boolean stealing){
+        private void execute(LockFreeTaskQueue queue, boolean stealing){
             Schedulable next;
             while((next = stealing ? queue.deqTail() : queue.deqHead()) != null){
                 try{
